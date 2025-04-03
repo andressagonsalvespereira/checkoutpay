@@ -13,6 +13,7 @@ import CheckoutContainer from '@/components/checkout/CheckoutContainer';
 import CheckoutProgressContainer from '@/components/checkout/progress/CheckoutProgressContainer';
 import ProductNotFound from '@/components/checkout/quick-checkout/ProductNotFound';
 import { PaymentMethod, PaymentStatus } from '@/types/order';
+import { logger } from '@/utils/logger';
 
 const Checkout: React.FC = () => {
   const { productSlug } = useParams<{ productSlug?: string }>();
@@ -25,6 +26,9 @@ const Checkout: React.FC = () => {
   const { toast } = useToast();
   const { settings } = useAsaas();
   const { addOrder } = useOrders();
+  
+  // Add a ref to track if an order has already been created for this session
+  const orderCreatedRef = React.useRef(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -40,10 +44,10 @@ const Checkout: React.FC = () => {
         }
         
         if (product) {
-          console.log("Produto encontrado:", product);
+          logger.log("Produto encontrado:", product);
           setSelectedProduct(product);
         } else {
-          console.log("Produto não encontrado");
+          logger.log("Produto não encontrado");
           toast({
             title: "Produto não encontrado",
             description: productSlug 
@@ -53,7 +57,7 @@ const Checkout: React.FC = () => {
           });
         }
       } catch (error) {
-        console.error("Erro ao buscar produto:", error);
+        logger.error("Erro ao buscar produto:", error);
         toast({
           title: "Erro ao carregar produto",
           description: "Ocorreu um erro ao tentar carregar os detalhes do produto.",
@@ -82,7 +86,7 @@ const Checkout: React.FC = () => {
   }, [settings, paymentMethod]);
 
   const handlePayment = async (paymentData: any) => {
-    console.log("Iniciando processamento de pagamento com dados:", paymentData);
+    logger.log("Iniciando processamento de pagamento com dados:", paymentData);
     setIsProcessing(true);
     
     try {
@@ -90,8 +94,29 @@ const Checkout: React.FC = () => {
         throw new Error("Produto não disponível para finalizar o pedido");
       }
       
+      // Check if order was already created by the payment component
+      // If orderJustCreated is true, it means the order was created by the component itself
+      if (paymentData.orderJustCreated || orderCreatedRef.current) {
+        logger.log("Ordem já foi criada anteriormente, navegando para a página de sucesso");
+        orderCreatedRef.current = true;
+        
+        toast({
+          title: "Pedido realizado com sucesso!",
+          description: paymentMethod === 'pix' 
+            ? "Utilize o QR code PIX para finalizar o pagamento." 
+            : "Seu pagamento foi processado.",
+          duration: 5000,
+        });
+        
+        navigate('/payment-success');
+        return;
+      }
+      
       const paymentMethodEnum: PaymentMethod = paymentMethod === 'card' ? 'CREDIT_CARD' : 'PIX';
       const paymentStatusEnum: PaymentStatus = paymentData.status === 'confirmed' ? 'PAID' : 'PENDING';
+      
+      // Mark that we're creating an order
+      orderCreatedRef.current = true;
       
       const orderData = {
         customer: paymentData.customerData || {
@@ -120,10 +145,10 @@ const Checkout: React.FC = () => {
         } : undefined
       };
       
-      console.log("Criando pedido com dados:", orderData);
+      logger.log("Criando pedido com dados:", orderData);
       
       const newOrder = await addOrder(orderData);
-      console.log("Pedido criado com sucesso:", newOrder);
+      logger.log("Pedido criado com sucesso:", newOrder);
       
       toast({
         title: "Pedido realizado com sucesso!",
@@ -135,7 +160,7 @@ const Checkout: React.FC = () => {
       
       navigate('/payment-success');
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
+      logger.error('Erro ao processar pagamento:', error);
       toast({
         title: "Erro no processamento",
         description: "Ocorreu um erro ao processar seu pedido. Tente novamente.",

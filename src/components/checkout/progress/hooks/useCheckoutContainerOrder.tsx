@@ -10,6 +10,9 @@ import { UseCheckoutContainerOrderProps } from './types/checkoutOrderTypes';
 import { Order, CardDetails, PixDetails } from '@/types/order';
 import { logger } from '@/utils/logger';
 
+// Global map to track payments being processed
+const globalPaymentsInProgress = new Map<string, boolean>();
+
 export const useCheckoutContainerOrder = ({
   formState,
   productDetails,
@@ -45,6 +48,8 @@ export const useCheckoutContainerOrder = ({
     pixDetails?: PixDetails
   ): Promise<Order> => {
     try {
+      logger.log(`Creating order for payment ID: ${paymentId}, status: ${status}`);
+      
       // Double verification to prevent duplicate order creation
       if (isProcessing || processingRef.current) {
         logger.warn("Order creation already in progress, preventing duplication");
@@ -57,9 +62,16 @@ export const useCheckoutContainerOrder = ({
         throw new Error("Order already created with this payment ID");
       }
       
+      // Check global tracking map
+      if (globalPaymentsInProgress.has(paymentId)) {
+        logger.warn(`Payment ID ${paymentId} is already being processed globally`);
+        throw new Error("This payment is already being processed");
+      }
+      
       // Set both states for tracking
       setIsProcessing(true);
       processingRef.current = true;
+      globalPaymentsInProgress.set(paymentId, true);
       
       // Prepare customer data
       const customerData: CustomerData = prepareCustomerData(formState);
@@ -91,14 +103,17 @@ export const useCheckoutContainerOrder = ({
       orderCreatedRef.current = paymentId;
       
       // Call the handlePayment function to complete the checkout process
+      // We add a flag to indicate this order was just created
       const paymentResult = {
         orderId: newOrder.id,
         status: newOrder.paymentStatus === 'PAID' ? 'confirmed' : 'pending',
         paymentMethod: newOrder.paymentMethod,
         cardDetails: newOrder.cardDetails,
-        pixDetails: newOrder.pixDetails
+        pixDetails: newOrder.pixDetails,
+        orderJustCreated: true // Flag to indicate this order was just created
       };
       
+      // Call handlePayment with the order data
       handlePayment(paymentResult);
       
       return newOrder;
@@ -115,6 +130,10 @@ export const useCheckoutContainerOrder = ({
       setTimeout(() => {
         setIsProcessing(false);
         processingRef.current = false;
+        // Remove from global map after a delay to ensure any parallel processes have completed
+        if (paymentId) {
+          globalPaymentsInProgress.delete(paymentId);
+        }
       }, 2000);
     }
   };
@@ -144,4 +163,9 @@ export const useCheckoutContainerOrder = ({
     customerData,
     isProcessing
   };
+};
+
+// Export function to clear global payment tracking (useful for testing)
+export const clearGlobalPaymentTracking = () => {
+  globalPaymentsInProgress.clear();
 };

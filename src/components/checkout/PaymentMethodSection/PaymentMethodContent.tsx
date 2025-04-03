@@ -9,6 +9,9 @@ import { PaymentMethodType } from './usePaymentMethodLogic';
 import { PaymentResult } from '@/components/checkout/payment/shared/types';
 import { logger } from '@/utils/logger';
 
+// Set para rastrear IDs de pagamento já processados
+const processedPaymentIds = new Set<string>();
+
 interface PaymentMethodContentProps {
   pixEnabled: boolean;
   cardEnabled: boolean;
@@ -45,39 +48,88 @@ const PaymentMethodContent: React.FC<PaymentMethodContentProps> = ({
 }) => {
   // Adapt callback functions for different payment components
   const cardFormCallback = async (data: PaymentResult): Promise<any> => {
-    if (!createOrder) return null;
+    if (!createOrder) {
+      logger.warn("Tentativa de criar pedido sem função createOrder disponível");
+      return null;
+    }
     
-    logger.log("Card form callback triggered");
+    // Gerar ID único de pagamento se não fornecido
+    const paymentId = data.paymentId || `card_${Date.now()}`;
     
-    return await createOrder(
-      data.paymentId || `card_${Date.now()}`,
-      data.status === 'confirmed' ? 'confirmed' : 'pending',
-      {
-        number: data.cardNumber,
-        expiryMonth: data.expiryMonth,
-        expiryYear: data.expiryYear,
-        cvv: data.cvv,
-        brand: data.brand || 'unknown'
-      },
-      undefined
-    );
+    logger.log("Card form callback triggered", {
+      paymentId,
+      status: data.status,
+      cardLast4: data.cardNumber ? data.cardNumber.slice(-4) : 'N/A',
+      brand: data.brand || 'unknown'
+    });
+    
+    // Verificar se este pagamento já foi processado
+    if (processedPaymentIds.has(paymentId)) {
+      logger.warn(`PaymentMethodContent: Pagamento ${paymentId} já foi processado anteriormente`);
+      return { duplicated: true, alreadyProcessed: true, paymentId };
+    }
+    
+    // Marcar como processado
+    processedPaymentIds.add(paymentId);
+    
+    try {
+      return await createOrder(
+        paymentId,
+        data.status === 'confirmed' ? 'confirmed' : 'pending',
+        {
+          number: data.cardNumber,
+          expiryMonth: data.expiryMonth,
+          expiryYear: data.expiryYear,
+          cvv: data.cvv,
+          brand: data.brand || 'unknown'
+        },
+        undefined
+      );
+    } catch (error) {
+      logger.error("Erro ao criar pedido com cartão:", error);
+      throw error;
+    }
   };
   
   const pixFormCallback = async (data: PaymentResult): Promise<any> => {
-    if (!createOrder) return null;
+    if (!createOrder) {
+      logger.warn("Tentativa de criar pedido sem função createOrder disponível");
+      return null;
+    }
     
-    logger.log("PIX form callback triggered");
+    // Gerar ID único de pagamento se não fornecido
+    const paymentId = data.paymentId || `pix_${Date.now()}`;
     
-    return await createOrder(
-      data.paymentId || `pix_${Date.now()}`,
-      'pending',
-      undefined,
-      {
-        qrCode: data.qrCode,
-        qrCodeImage: data.qrCodeImage,
-        expirationDate: data.expirationDate
-      }
-    );
+    logger.log("PIX form callback triggered", {
+      paymentId,
+      hasQrCode: !!data.qrCode,
+      hasQrCodeImage: !!data.qrCodeImage
+    });
+    
+    // Verificar se este pagamento já foi processado
+    if (processedPaymentIds.has(paymentId)) {
+      logger.warn(`PaymentMethodContent: Pagamento ${paymentId} já foi processado anteriormente`);
+      return { duplicated: true, alreadyProcessed: true, paymentId };
+    }
+    
+    // Marcar como processado
+    processedPaymentIds.add(paymentId);
+    
+    try {
+      return await createOrder(
+        paymentId,
+        'pending',
+        undefined,
+        {
+          qrCode: data.qrCode,
+          qrCodeImage: data.qrCodeImage,
+          expirationDate: data.expirationDate
+        }
+      );
+    } catch (error) {
+      logger.error("Erro ao criar pedido com PIX:", error);
+      throw error;
+    }
   };
 
   // Function to handle PIX button click
@@ -142,3 +194,8 @@ const PaymentMethodContent: React.FC<PaymentMethodContentProps> = ({
 };
 
 export default PaymentMethodContent;
+
+// Função para limpar o conjunto de IDs processados (útil para testes)
+export const clearProcessedPaymentIds = () => {
+  processedPaymentIds.clear();
+};

@@ -1,11 +1,15 @@
 
 import { PaymentResult } from '../payment/shared/types';
 import { Order, CardDetails, PixDetails } from '@/types/order';
+import { logger } from '@/utils/logger';
 
 interface AdaptedCallbacks {
   cardFormCallback: (data: any) => Promise<any>;
   pixFormCallback: (data: any) => Promise<any>;
 }
+
+// Global map to track processed payment IDs across the entire application
+const globalProcessedPaymentIds = new Map<string, boolean>();
 
 /**
  * Adapts the order callback function for different payment components
@@ -24,11 +28,11 @@ export const adaptOrderCallback = (
   // Use provided or default function
   const orderCreator = createOrder || defaultCreateOrder;
   
-  // Map to track payment IDs that have been processed
-  const processedPaymentIds = new Map<string, boolean>();
+  // Map to track payment IDs that have been processed in this instance
+  const localProcessedPaymentIds = new Map<string, boolean>();
   
   const cardFormCallback = async (paymentData: PaymentResult): Promise<any> => {
-    console.log('Processing card payment with data:', {
+    logger.log('Processing card payment with data:', {
       paymentId: paymentData.paymentId,
       status: paymentData.status,
       brand: paymentData.brand,
@@ -37,14 +41,17 @@ export const adaptOrderCallback = (
     
     try {
       // Check if this payment ID has already been processed
-      const paymentId = paymentData.paymentId || 'unknown_payment_id';
-      if (processedPaymentIds.has(paymentId)) {
-        console.warn(`Payment ID ${paymentId} was already processed, skipping duplicate`);
-        return { duplicated: true };
+      const paymentId = paymentData.paymentId || `card_${Date.now()}`;
+      
+      // Check both global and local maps for duplicates
+      if (globalProcessedPaymentIds.has(paymentId) || localProcessedPaymentIds.has(paymentId)) {
+        logger.warn(`Payment ID ${paymentId} was already processed, skipping duplicate`);
+        return { duplicated: true, alreadyProcessed: true, paymentId };
       }
       
-      // Mark as processed
-      processedPaymentIds.set(paymentId, true);
+      // Mark as processed in both maps
+      globalProcessedPaymentIds.set(paymentId, true);
+      localProcessedPaymentIds.set(paymentId, true);
       
       // Create an order with the card details
       const order = await orderCreator(
@@ -60,15 +67,16 @@ export const adaptOrderCallback = (
         undefined
       );
       
+      logger.log(`Card payment order created successfully with ID: ${order.id}`);
       return order;
     } catch (error) {
-      console.error('Error in cardFormCallback:', error);
+      logger.error('Error in cardFormCallback:', error);
       throw error;
     }
   };
   
   const pixFormCallback = async (paymentData: PaymentResult): Promise<any> => {
-    console.log('Processing PIX payment with data:', {
+    logger.log('Processing PIX payment with data:', {
       paymentId: paymentData.paymentId,
       hasQrCode: !!paymentData.qrCode,
       hasQrCodeImage: !!paymentData.qrCodeImage,
@@ -76,14 +84,17 @@ export const adaptOrderCallback = (
     
     try {
       // Check if this payment ID has already been processed
-      const paymentId = paymentData.paymentId || 'unknown_payment_id';
-      if (processedPaymentIds.has(paymentId)) {
-        console.warn(`Payment ID ${paymentId} was already processed, skipping duplicate`);
-        return { duplicated: true };
+      const paymentId = paymentData.paymentId || `pix_${Date.now()}`;
+      
+      // Check both global and local maps for duplicates
+      if (globalProcessedPaymentIds.has(paymentId) || localProcessedPaymentIds.has(paymentId)) {
+        logger.warn(`Payment ID ${paymentId} was already processed, skipping duplicate`);
+        return { duplicated: true, alreadyProcessed: true, paymentId };
       }
       
-      // Mark as processed
-      processedPaymentIds.set(paymentId, true);
+      // Mark as processed in both maps
+      globalProcessedPaymentIds.set(paymentId, true);
+      localProcessedPaymentIds.set(paymentId, true);
       
       // Create an order with the PIX details
       const order = await orderCreator(
@@ -97,9 +108,10 @@ export const adaptOrderCallback = (
         }
       );
       
+      logger.log(`PIX payment order created successfully with ID: ${order.id}`);
       return order;
     } catch (error) {
-      console.error('Error in pixFormCallback:', error);
+      logger.error('Error in pixFormCallback:', error);
       throw error;
     }
   };
@@ -118,4 +130,11 @@ export const checkPaymentMethodsAvailability = (settings: any) => {
   const cardEnabled = settings?.allowCreditCard !== false;
   
   return { pixEnabled, cardEnabled };
+};
+
+/**
+ * Reset the global processed payment IDs (useful for testing)
+ */
+export const resetProcessedPaymentIds = () => {
+  globalProcessedPaymentIds.clear();
 };
