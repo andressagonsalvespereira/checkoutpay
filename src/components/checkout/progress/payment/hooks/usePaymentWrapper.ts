@@ -50,8 +50,11 @@ export const usePaymentWrapper = () => {
         processedPaymentIds.add(safePaymentId);
         localProcessedPaymentIds.current.add(safePaymentId);
         
-        logger.log(`PaymentWrapper: Creating order for payment ${safePaymentId}`);
-        const order = await createOrder(safePaymentId, status, cardDetails, pixDetails);
+        // Normalize status value
+        const normalizedStatus = status.toLowerCase() === 'confirmed' ? 'confirmed' : 'pending';
+        
+        logger.log(`PaymentWrapper: Creating order for payment ${safePaymentId} with normalized status ${normalizedStatus}`);
+        const order = await createOrder(safePaymentId, normalizedStatus, cardDetails, pixDetails);
         logger.log(`PaymentWrapper: Order created successfully with ID ${order.id}`);
         
         return order;

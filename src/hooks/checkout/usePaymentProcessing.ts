@@ -41,7 +41,9 @@ export const usePaymentProcessing = (
           id: product.id,
           name: product.nome,
           price: product.preco,
-          isDigital: product.digital
+          isDigital: product.digital,
+          useCustomProcessing: product.usarProcessamentoPersonalizado,
+          manualCardStatus: product.statusCartaoManual
         } : 'No product available',
         paymentMethod,
         paymentStatus: paymentData.status
@@ -83,11 +85,17 @@ export const usePaymentProcessing = (
       
       // If the status is coming from paymentData, make sure it's valid
       if (paymentData.status) {
-        if (paymentData.status === 'CONFIRMED') {
+        // Normalize various status formats (considering both English and Portuguese)
+        const normalizedStatus = String(paymentData.status).toUpperCase();
+        
+        if (['CONFIRMED', 'APPROVED', 'PAID', 'APROVADO', 'PAGO', 'CONFIRMADO'].includes(normalizedStatus)) {
           paymentStatus = 'PAID';
-        } else if (typeof paymentData.status === 'string' && 
-                 ['PENDING', 'PAID', 'APPROVED', 'DENIED', 'ANALYSIS', 'CANCELLED'].includes(paymentData.status)) {
-          paymentStatus = paymentData.status as PaymentStatus;
+        } else if (['DENIED', 'DECLINED', 'FAILED', 'NEGADO', 'RECUSADO', 'FALHA'].includes(normalizedStatus)) {
+          paymentStatus = 'DENIED';
+        } else if (['ANALYSIS', 'PENDING', 'ANALISE', 'ANÁLISE', 'PENDENTE', 'AGUARDANDO'].includes(normalizedStatus)) {
+          paymentStatus = 'ANALYSIS';
+        } else if (['CANCELLED', 'CANCELED', 'CANCELADO'].includes(normalizedStatus)) {
+          paymentStatus = 'CANCELLED';
         } else {
           paymentStatus = 'PENDING'; // Default fallback
         }

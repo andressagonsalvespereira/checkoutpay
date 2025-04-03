@@ -153,8 +153,10 @@ async function processManualPayment({
     // Verifica se deve usar configurações específicas do produto primeiro
     if (formState.useCustomProcessing && formState.manualCardStatus) {
       paymentStatus = formState.manualCardStatus;
+      logger.log(`Usando configuração de status específica do produto: ${paymentStatus}`);
     } else if (settings.manualCardStatus) {
       paymentStatus = settings.manualCardStatus;
+      logger.log(`Usando configuração de status global: ${paymentStatus}`);
     }
     
     // Detecta bandeira do cartão
@@ -162,7 +164,7 @@ async function processManualPayment({
     
     // Prepara o objeto de resultado de pagamento
     const paymentResult: PaymentResult = {
-      success: true,
+      success: paymentStatus !== 'DENIED',
       method: 'card',
       paymentId,
       status: paymentStatus,
@@ -197,11 +199,14 @@ async function processManualPayment({
     // Função auxiliar para determinar o caminho de redirecionamento com base no status
     const getRedirectPath = () => {
       if (paymentStatus === 'DENIED') {
+        logger.log(`Redirecionando para página de falha devido ao status: ${paymentStatus}`);
         return '/payment-failed';
       } else if (paymentStatus === 'APPROVED') {
+        logger.log(`Redirecionando para página de sucesso devido ao status: ${paymentStatus}`);
         return '/payment-success';
       } else {
         // Se o status for ANALYSIS ou qualquer outro, usa a página de sucesso mas indica que está em análise
+        logger.log(`Redirecionando para página de sucesso com status em análise: ${paymentStatus}`);
         return '/payment-success';
       }
     };
@@ -209,24 +214,27 @@ async function processManualPayment({
     // Notificação toast com base no status
     if (paymentStatus !== 'DENIED') {
       toast({
-        title: paymentStatus === 'APPROVED' ? "Payment Approved" : "Payment Under Review",
+        title: paymentStatus === 'APPROVED' ? "Pagamento Aprovado" : "Pagamento em Análise",
         description: paymentStatus === 'APPROVED' 
-          ? "Your payment has been successfully approved!" 
-          : "Your payment has been received and is under review.",
+          ? "Seu pagamento foi aprovado com sucesso!" 
+          : "Seu pagamento foi recebido e está em análise.",
         duration: 5000,
         variant: "default"
       });
     } else {
       toast({
-        title: "Payment Declined",
-        description: "Your payment was declined. Please try again.",
+        title: "Pagamento Recusado",
+        description: "Seu pagamento foi recusado. Por favor, tente novamente.",
         variant: "destructive",
         duration: 5000,
       });
     }
     
     // Navega para a página apropriada
-    navigate(getRedirectPath(), { 
+    const redirectPath = getRedirectPath();
+    logger.log(`Redirecionando para: ${redirectPath} com estado:`, orderData);
+    
+    navigate(redirectPath, { 
       state: { orderData }
     });
     
@@ -237,8 +245,8 @@ async function processManualPayment({
     
     // Mostrar toast de erro
     toast({
-      title: "Processing Error",
-      description: "An error occurred while processing your payment. Please try again.",
+      title: "Erro no Processamento",
+      description: "Ocorreu um erro ao processar seu pagamento. Por favor, tente novamente.",
       variant: "destructive",
       duration: 5000,
     });
@@ -305,7 +313,7 @@ async function processAutomaticPayment({
       productName: formState.productName,
       productPrice: formState.productPrice,
       paymentMethod: 'CREDIT_CARD',
-      paymentStatus: 'Pago',
+      paymentStatus: 'PAID',
       paymentId,
       cardDetails: {
         number: cardData.cardNumber.replace(/\D/g, '').slice(-4).padStart(16, '*'),
@@ -326,8 +334,8 @@ async function processAutomaticPayment({
     
     // Mostra mensagem de sucesso
     toast({
-      title: "Payment approved!",
-      description: "Your payment was processed successfully.",
+      title: "Pagamento aprovado!",
+      description: "Seu pagamento foi processado com sucesso.",
       duration: 5000,
       variant: "default"
     });
@@ -336,8 +344,12 @@ async function processAutomaticPayment({
     setTimeout(() => {
       navigate('/payment-success', { 
         state: { 
-          paymentId,
-          productName: formState.productName,
+          orderData: {
+            paymentId,
+            productName: formState.productName,
+            productPrice: formState.productPrice,
+            paymentStatus: 'APPROVED'
+          },
           automatic: true 
         } 
       });

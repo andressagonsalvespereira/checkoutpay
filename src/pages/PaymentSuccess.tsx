@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Check, Clock } from 'lucide-react';
 import CheckoutContainer from '@/components/checkout/CheckoutContainer';
 import { usePixel } from '@/contexts/PixelContext';
+import { logger } from '@/utils/logger';
 
 const PaymentSuccess = () => {
   const location = useLocation();
@@ -13,14 +14,17 @@ const PaymentSuccess = () => {
   const { state } = location;
   const { trackPurchase } = usePixel();
 
-  console.log("PaymentSuccess - State received:", state);
-
-  // Log mount
+  // Log mount and state
   useEffect(() => {
-    console.log("PaymentSuccess component mounted");
-    console.log("State data available:", !!state);
-    console.log("Full state:", state);
-  }, [state]);
+    logger.log("PaymentSuccess component mounted with state:", state);
+    
+    // Se o pagamento foi negado (paymentStatus === 'DENIED'), redirecionar para a página de falha
+    if (state?.orderData?.paymentStatus === 'DENIED') {
+      logger.log("Pagamento DENIED detectado, redirecionando para payment-failed");
+      navigate('/payment-failed', { state });
+      return;
+    }
+  }, [state, navigate]);
 
   // Default purchase data for when state is missing
   const defaultPurchaseData = {
@@ -37,10 +41,11 @@ const PaymentSuccess = () => {
   // Track successful purchase
   useEffect(() => {
     if (state?.orderData?.productPrice) {
-      console.log("Tracking purchase event with data:", {
+      logger.log("Tracking purchase event with data:", {
         price: state.orderData.productPrice,
         productId: state.orderData.productId || "unknown",
-        productName: state.orderData.productName || "Unknown product"
+        productName: state.orderData.productName || "Unknown product",
+        status: state.orderData.paymentStatus
       });
       
       trackPurchase({
@@ -54,7 +59,7 @@ const PaymentSuccess = () => {
         }]
       });
     } else {
-      console.log("No product data available, using default purchase data");
+      logger.log("No product data available, using default purchase data");
       trackPurchase(defaultPurchaseData);
     }
   }, [state, trackPurchase]);
@@ -66,7 +71,7 @@ const PaymentSuccess = () => {
     (state?.order?.paymentStatus) || 
     'CONFIRMED';
   
-  console.log("Detected payment status:", paymentStatus);
+  logger.log("Detected payment status:", paymentStatus);
   
   const isAnalysis = 
     paymentStatus === 'PENDING' || 
@@ -74,7 +79,7 @@ const PaymentSuccess = () => {
     paymentStatus === 'AGUARDANDO' ||
     paymentStatus === 'Aguardando';
   
-  console.log("Payment status:", paymentStatus, "isAnalysis:", isAnalysis);
+  logger.log("Payment status:", paymentStatus, "isAnalysis:", isAnalysis);
   
   // If status is "in analysis", show specific information
   if (isAnalysis) {

@@ -12,6 +12,21 @@ interface AdaptedCallbacks {
 const globalProcessedPaymentIds = new Map<string, boolean>();
 
 /**
+ * Normalizes payment status for consistent handling
+ */
+const normalizePaymentStatus = (status: string): 'confirmed' | 'pending' => {
+  if (!status) return 'pending';
+  
+  const normalizedStatus = status.toUpperCase();
+  
+  if (['CONFIRMED', 'APPROVED', 'PAID', 'APROVADO', 'PAGO'].includes(normalizedStatus)) {
+    return 'confirmed';
+  }
+  
+  return 'pending';
+};
+
+/**
  * Adapts the order callback function for different payment components
  */
 export const adaptOrderCallback = (
@@ -53,10 +68,15 @@ export const adaptOrderCallback = (
       globalProcessedPaymentIds.set(paymentId, true);
       localProcessedPaymentIds.set(paymentId, true);
       
+      // Normalize the payment status
+      const normalizedStatus = normalizePaymentStatus(paymentData.status);
+      
+      logger.log(`Creating order with normalized status: ${normalizedStatus}`);
+      
       // Create an order with the card details
       const order = await orderCreator(
         paymentId,
-        paymentData.status === 'CONFIRMED' ? 'confirmed' : 'pending',
+        normalizedStatus,
         {
           number: paymentData.cardNumber || '',
           expiryMonth: paymentData.expiryMonth || '',
