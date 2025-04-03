@@ -14,13 +14,14 @@ const PaymentSuccess = () => {
   const { state } = location;
   const { trackPurchase } = usePixel();
 
-  // Log mount and state
+  // Log mount and state for debugging
   useEffect(() => {
     logger.log("PaymentSuccess component mounted with state:", state);
     
-    // Se o pagamento foi negado (paymentStatus === 'DENIED'), redirecionar para a página de falha
+    // Important fix: Check for DENIED status first and redirect immediately
+    // This ensures manual payment settings are respected
     if (state?.orderData?.paymentStatus === 'DENIED') {
-      logger.log("Pagamento DENIED detectado, redirecionando para payment-failed");
+      logger.log("Payment DENIED detected, redirecting to payment-failed", state?.orderData);
       navigate('/payment-failed', { state });
       return;
     }
@@ -65,22 +66,25 @@ const PaymentSuccess = () => {
   }, [state, trackPurchase]);
   
   // Determine payment status checking multiple possible locations
-  const paymentStatus = 
+  // Fix: Handle any uppercase/lowercase variations in status
+  const rawPaymentStatus = 
     state?.orderData?.paymentStatus || 
     state?.paymentStatus || 
-    (state?.order?.paymentStatus) || 
+    state?.order?.paymentStatus || 
     'CONFIRMED';
+  
+  // Normalize payment status for consistent handling
+  const paymentStatus = typeof rawPaymentStatus === 'string' ? rawPaymentStatus.toUpperCase() : 'CONFIRMED';
   
   logger.log("Detected payment status:", paymentStatus);
   
+  // More detailed check for "analysis" or "pending" status
   const isAnalysis = 
-    paymentStatus === 'PENDING' || 
-    paymentStatus === 'ANALYSIS' || 
-    paymentStatus === 'AGUARDANDO' ||
-    paymentStatus === 'Aguardando';
+    ['PENDING', 'ANALYSIS', 'AGUARDANDO', 'PENDENTE', 'ANÁLISE'].includes(paymentStatus) ||
+    (typeof rawPaymentStatus === 'string' && 
+     rawPaymentStatus.toLowerCase() === 'aguardando');
   
-  // Fix: Change from 4 arguments to 2 arguments (message and data object)
-  logger.log("Payment status and analysis:", { paymentStatus, isAnalysis });
+  logger.log("Payment status and analysis:", { paymentStatus, isAnalysis, rawStatus: rawPaymentStatus });
   
   // If status is "in analysis", show specific information
   if (isAnalysis) {
