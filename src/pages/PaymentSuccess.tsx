@@ -79,7 +79,8 @@ const PaymentSuccess = () => {
     paymentStatus === 'AGUARDANDO' ||
     paymentStatus === 'Aguardando';
   
-  logger.log("Payment status:", paymentStatus, "isAnalysis:", isAnalysis);
+  // Fix: Change from 4 arguments to 2 arguments (message and data object)
+  logger.log("Payment status and analysis:", { paymentStatus, isAnalysis });
   
   // If status is "in analysis", show specific information
   if (isAnalysis) {
