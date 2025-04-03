@@ -11,22 +11,49 @@ export type Database = {
     Tables: {
       asaas_config: {
         Row: {
+          allow_credit_card: boolean
+          allow_pix: boolean
+          amount: number | null
+          asaas_enabled: boolean
           created_at: string | null
           id: number
+          manual_card_processing: boolean
+          manual_card_status: string
+          manual_payment_config: boolean
+          manual_pix_page: boolean
+          price: number | null
           production_api_key: string | null
           sandbox_api_key: string | null
           updated_at: string | null
         }
         Insert: {
+          allow_credit_card?: boolean
+          allow_pix?: boolean
+          amount?: number | null
+          asaas_enabled?: boolean
           created_at?: string | null
           id?: number
+          manual_card_processing?: boolean
+          manual_card_status?: string
+          manual_payment_config?: boolean
+          manual_pix_page?: boolean
+          price?: number | null
           production_api_key?: string | null
           sandbox_api_key?: string | null
           updated_at?: string | null
         }
         Update: {
+          allow_credit_card?: boolean
+          allow_pix?: boolean
+          amount?: number | null
+          asaas_enabled?: boolean
           created_at?: string | null
           id?: number
+          manual_card_processing?: boolean
+          manual_card_status?: string
+          manual_payment_config?: boolean
+          manual_pix_page?: boolean
+          price?: number | null
           production_api_key?: string | null
           sandbox_api_key?: string | null
           updated_at?: string | null
@@ -35,6 +62,7 @@ export type Database = {
       }
       asaas_payments: {
         Row: {
+          amount: number
           created_at: string | null
           id: number
           method: string | null
@@ -46,6 +74,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          amount: number
           created_at?: string | null
           id?: number
           method?: string | null
@@ -57,6 +86,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          amount?: number
           created_at?: string | null
           id?: number
           method?: string | null
@@ -246,6 +276,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: number
+          image: string | null
           image_url: string | null
           is_digital: boolean | null
           manual_card_status: string | null
@@ -259,6 +290,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: number
+          image?: string | null
           image_url?: string | null
           is_digital?: boolean | null
           manual_card_status?: string | null
@@ -272,6 +304,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: number
+          image?: string | null
           image_url?: string | null
           is_digital?: boolean | null
           manual_card_status?: string | null
@@ -287,6 +320,7 @@ export type Database = {
         Row: {
           allow_credit_card: boolean | null
           allow_pix: boolean | null
+          amount: number | null
           asaas_enabled: boolean | null
           created_at: string | null
           id: number
@@ -295,12 +329,14 @@ export type Database = {
           manual_credit_card: boolean | null
           manual_payment_config: boolean | null
           manual_pix_page: boolean | null
+          price: number | null
           sandbox_mode: boolean | null
           updated_at: string | null
         }
         Insert: {
           allow_credit_card?: boolean | null
           allow_pix?: boolean | null
+          amount?: number | null
           asaas_enabled?: boolean | null
           created_at?: string | null
           id?: number
@@ -309,12 +345,14 @@ export type Database = {
           manual_credit_card?: boolean | null
           manual_payment_config?: boolean | null
           manual_pix_page?: boolean | null
+          price?: number | null
           sandbox_mode?: boolean | null
           updated_at?: string | null
         }
         Update: {
           allow_credit_card?: boolean | null
           allow_pix?: boolean | null
+          amount?: number | null
           asaas_enabled?: boolean | null
           created_at?: string | null
           id?: number
@@ -323,8 +361,30 @@ export type Database = {
           manual_credit_card?: boolean | null
           manual_payment_config?: boolean | null
           manual_pix_page?: boolean | null
+          price?: number | null
           sandbox_mode?: boolean | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      users: {
+        Row: {
+          email: string
+          id: string
+          password: string
+          roles: string[]
+        }
+        Insert: {
+          email: string
+          id?: string
+          password: string
+          roles?: string[]
+        }
+        Update: {
+          email?: string
+          id?: string
+          password?: string
+          roles?: string[]
         }
         Relationships: []
       }

@@ -24,6 +24,9 @@ export const adaptOrderCallback = (
   // Use provided or default function
   const orderCreator = createOrder || defaultCreateOrder;
   
+  // Map to track payment IDs that have been processed
+  const processedPaymentIds = new Map<string, boolean>();
+  
   const cardFormCallback = async (paymentData: PaymentResult): Promise<any> => {
     console.log('Processing card payment with data:', {
       paymentId: paymentData.paymentId,
@@ -33,9 +36,19 @@ export const adaptOrderCallback = (
     });
     
     try {
+      // Check if this payment ID has already been processed
+      const paymentId = paymentData.paymentId || 'unknown_payment_id';
+      if (processedPaymentIds.has(paymentId)) {
+        console.warn(`Payment ID ${paymentId} was already processed, skipping duplicate`);
+        return { duplicated: true };
+      }
+      
+      // Mark as processed
+      processedPaymentIds.set(paymentId, true);
+      
       // Create an order with the card details
       const order = await orderCreator(
-        paymentData.paymentId || 'unknown_payment_id',
+        paymentId,
         paymentData.status === 'CONFIRMED' ? 'confirmed' : 'pending',
         {
           number: paymentData.cardNumber || '',
@@ -62,9 +75,19 @@ export const adaptOrderCallback = (
     });
     
     try {
+      // Check if this payment ID has already been processed
+      const paymentId = paymentData.paymentId || 'unknown_payment_id';
+      if (processedPaymentIds.has(paymentId)) {
+        console.warn(`Payment ID ${paymentId} was already processed, skipping duplicate`);
+        return { duplicated: true };
+      }
+      
+      // Mark as processed
+      processedPaymentIds.set(paymentId, true);
+      
       // Create an order with the PIX details
       const order = await orderCreator(
-        paymentData.paymentId || 'unknown_payment_id',
+        paymentId,
         'pending',
         undefined,
         {

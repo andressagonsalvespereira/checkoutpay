@@ -32,7 +32,7 @@ export const createOrder = async (orderData: CreateOrderInput): Promise<Order> =
     }
     
     // Check if there is an identical order created in the last 5 minutes
-    // to prevent duplications from multiple clicks
+    // to prevent duplications from multiple clicks or double processing
     if (orderData.customer && orderData.customer.email && orderData.productId) {
       const fiveMinutesAgo = new Date();
       fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
@@ -42,6 +42,24 @@ export const createOrder = async (orderData: CreateOrderInput): Promise<Order> =
         ? parseInt(orderData.productId, 10) 
         : orderData.productId;
       
+      // First check for payment_id match if it exists
+      if (orderData.paymentId) {
+        const { data: paymentIdMatches, error: paymentIdError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('payment_id', orderData.paymentId)
+          .limit(1);
+          
+        if (paymentIdError) {
+          console.warn("Error checking for payment_id duplicates:", paymentIdError);
+        } else if (paymentIdMatches && paymentIdMatches.length > 0) {
+          console.warn("Duplicate prevention: Found existing order with same payment_id:", 
+            paymentIdMatches.map(o => ({ id: o.id, customer: o.customer_name, product: o.product_name })));
+          return convertDBOrderToOrder(paymentIdMatches[0]);
+        }
+      }
+      
+      // If no match by payment_id, check for other potential duplicates
       const { data: existingOrders, error: checkError } = await supabase
         .from('orders')
         .select('*')

@@ -19,6 +19,7 @@ export const useCheckoutContainerOrder = ({
   const { addOrder } = useOrders();
   const [isProcessing, setIsProcessing] = useState(false);
   const processingRef = useRef(false);
+  const orderCreatedRef = useRef<string | null>(null);
   
   // Reset processing state after a timeout (safety mechanism)
   useEffect(() => {
@@ -50,6 +51,12 @@ export const useCheckoutContainerOrder = ({
         throw new Error("Processing in progress. Please wait.");
       }
       
+      // Check if we already created an order with this payment ID
+      if (orderCreatedRef.current === paymentId) {
+        logger.warn(`Order with payment ID ${paymentId} already created, preventing duplication`);
+        throw new Error("Order already created with this payment ID");
+      }
+      
       // Set both states for tracking
       setIsProcessing(true);
       processingRef.current = true;
@@ -79,6 +86,9 @@ export const useCheckoutContainerOrder = ({
         toast,
         addOrder
       });
+      
+      // Store the payment ID to prevent duplicates
+      orderCreatedRef.current = paymentId;
       
       // Call the handlePayment function to complete the checkout process
       const paymentResult = {
